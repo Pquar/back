@@ -4,17 +4,18 @@
   "version": "0.0.0",
   "private": false,
   "scripts": {
-    "start": "node app",
-    "test": " mocha ",
-    "dev": "nodemon app"
+    "start": "node clusters >> app.log",
+    "test": " NODE_ENV=test ./node_modules/mocha/bin/mocha test/*.js "
   },
   "dependencies": {
+    "connect-redis": "^8.0.3",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "ejs": "~2.6.1",
     "express": "~4.16.1",
     "express-load": "^1.1.16",
     "express-session": "^1.18.1",
+    "forever-monitor": "^3.0.3",
     "http-errors": "~1.6.3",
     "method-override": "^3.0.0",
     "mongoose": "^8.13.1",

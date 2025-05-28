@@ -1,8 +1,10 @@
 const { emit } = require('process');
 
 module.exports = function (io) {
+
     var crypto = require('crypto')
-        , redis = require('redis').createClient()
+        , redis_connect = require('../lib/redis_connect')
+        , redis = redis_connect.getClient()
         , sockets = io.sockets;
 
     sockets.on('connection', function (client) {

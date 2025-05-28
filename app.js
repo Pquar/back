@@ -1,19 +1,35 @@
-const KEY = 'ntalk.sid',
-  SECRET = 'ntalk';
+const { getExpressStore } = require('./lib/redis_connect');
+var cfg = require('./config.json')
 
 var express = require('express'),
-  load = require('express-load'),
-  bodyParser = require('body-parser'),
-  cookieParser = require('cookie-parser'),
-  expressSession = require('express-session'),
-  methodOverride = require('method-override'),
-  parserSecret = cookieParser(SECRET),
-  store = new expressSession.MemoryStore(),
-  app = express(),
-  server = require('http').createServer(app),
-  error = require('./middleware/error'),
-  io = require('socket.io')(server),
-  mongoose = require('mongoose');
+app = express(),
+load = require('express-load'),
+server = require('http').createServer(app),
+error = require('./middleware/error'),
+cfg = require('./config.json')
+io = require('socket.io')(server),
+redis = require('./lib/redis_connect'),
+ExpressStorepressStore = redis.getExpressStore(),
+socketStore = redis.getSocketStore(),
+
+bodyParser = require('body-parser'),
+cookieParser = require('cookie-parser'),
+expressSession = require('express-session'),
+methodOverride = require('method-override'),
+parserSecret = cookieParser(SECRET),
+store = new expressSession.MemoryStore(),
+mongoose = require('mongoose');
+
+
+var cookie = express.cookieParser(cfg.SECRET)
+ , storeOpts = {client: redis.getClient(), 
+                 prefix: KEY}
+ , store = new ExpressStore (storeOpts)
+ , sessOpts = {secret: cfg.SECRET, key: cfg.KEY, store: store}
+ , session = express.session(sessOpts);
+
+ io.set('log level', 1);
+ io.set('store', new socketStore);
 
 mongoose.connect('mongodb://localhost/ntalk');
 mongoose.connection.on('error', (err) => {
@@ -21,8 +37,19 @@ mongoose.connection.on('error', (err) => {
 });
 mongoose.Promise = global.Promise;
 
+app.use(express.logger('dev'));
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
+app.use(cookie);
+app.use(session);
+app.use(express.json());
+app.use(express.urlencoded());
+app.use(express.methodOverride());
+app.use(express.compress(cfg.GZIP_LVL));
+app.use(app.router);
+app.use(express.static(__dirname + '/public', cfg.MAX_AGE));
+app.use(error.notFound);
+app.use(error.serverError);
 
 app.use(parserSecret);
 app.use(
@@ -35,14 +62,15 @@ app.use(
   })
 );
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(methodOverride('_method'));
-app.use(express.static(__dirname + '/public'));
-
-io.use('authorization', function (data, accept) {
+io.enable('blowser client cache');
+io.enable('browser client minification');
+io.enable('blowser client etag');
+io.enable('browser client gzip');
+io.set('log level', 1);
+io.set('store', new socketStore);
+io.set('authorization', function (data, accept) {
   cookie(data, {}, function (err) {
-    var sessionID = data.signedCookies[KEY];
+    var sessionID = data.signedCookies[cfg.KEY];
     store.get(sessionID, function (err, session) {
       if (err || !session) {
         accept(null, false);
@@ -66,8 +94,6 @@ io.sockets.on('connection', function (client) {
 });
 /* app.get('/', routes.index);
 app.get('/usuarios', routes.user.index); */
-app.use(error.notFound);
-app.use(error.serverError);
 
 module.exports = app;
 server.listen(3000, function () {
